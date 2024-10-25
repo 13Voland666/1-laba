@@ -1,154 +1,93 @@
 ﻿#include <iostream>
 #include <fstream>
-#include <sstream>
 #include <string>
-#include <unordered_map>
 #include <vector>
+#include <unordered_map>
 #include <thread>
 #include <chrono>
+#include <mutex>
 #include <locale>
 
-using namespace std;
-
-// Функция для однопоточного выполнения
-void single_threaded_version(const string& file_path) {
-    // Начало замера времени
-    auto start_time = chrono::high_resolution_clock::now();
-
-    // Чтение данных из файла
-    ifstream file(file_path);
-    if (!file.is_open()) {
-        cerr << "Ошибка: не удалось открыть файл " << file_path << endl;
-        return;
-    }
-
-    vector<string> words;
-    string line;
-
-    while (getline(file, line)) {
-        words.push_back(line);
-    }
-    file.close();
-
-    // Проверяем, есть ли слова в файле
-    if (words.empty()) {
-        cout << "Файл пуст." << endl;
-        return;
-    }
-
-    // Находим самое длинное слово
-    string longest_word;
-    for (const auto& word : words) {
-        if (word.length() > longest_word.length()) {
-            longest_word = word;
-        }
-    }
-
-    // Подсчет количества слов
-    size_t word_count = words.size();
-
-    // Подсчет частоты символов в самом длинном слове
-    unordered_map<char, int> letter_frequency;
-    for (char letter : longest_word) {
-        letter_frequency[letter]++;
-    }
-
-    // Конец замера времени
-    auto end_time = chrono::high_resolution_clock::now();
-    chrono::duration<double> execution_time = end_time - start_time;
-
-    // Вывод результатов
-    cout << "\nСамое длинное слово: " << longest_word << endl;
-    cout << "Количество слов: " << word_count << endl;
-    cout << "Частота букв в самом длинном слове:" << endl;
-    for (const auto& pair : letter_frequency) {
-        cout << pair.first << ": " << pair.second << endl;
-    }
-
-    // Подсчет и вывод времени выполнения
-    cout << "\nВремя выполнения программы (однопоточно): " << execution_time.count() << " секунд" << endl;
-}
+std::mutex mtx;
 
 // Функция для нахождения самого длинного слова
-void find_longest_word(const vector<string>& words, string& longest_word) {
+void find_longest_word(const std::vector<std::string>& words, std::string& longest_word) {
     for (const auto& word : words) {
         if (word.length() > longest_word.length()) {
             longest_word = word;
         }
     }
+}
+
+// Функция для подсчета количества слов
+void count_words(const std::vector<std::string>& words, int& word_count) {
+    word_count = words.size();
 }
 
 // Функция для подсчета частоты символов в самом длинном слове
-void count_letter_frequency(const string& longest_word, unordered_map<char, int>& letter_frequency) {
+void count_letter_frequency(const std::string& longest_word, std::unordered_map<char, int>& letter_frequency) {
     for (char letter : longest_word) {
+        std::lock_guard<std::mutex> lock(mtx); // Защита от одновременного доступа
         letter_frequency[letter]++;
     }
 }
 
-// Функция для многопоточного выполнения
-void multi_threaded_version(const string& file_path) {
-    // Начало замера времени
-    auto start_time = chrono::high_resolution_clock::now();
+int main() {
+    // Устанавливаем локаль для корректного отображения кириллицы
+    std::locale::global(std::locale("ru_RU.UTF-8"));
+    std::wcout.imbue(std::locale("ru_RU.UTF-8"));
 
-    // Чтение данных из файла
-    ifstream file(file_path);
+    std::string file_path = "X:\\Politex\\mnogopotok\\1 laba\\data.txt";
+    std::ifstream file(file_path);
     if (!file.is_open()) {
-        cerr << "Ошибка: не удалось открыть файл " << file_path << endl;
-        return;
+        std::wcerr << L"Не удалось открыть файл: " << file_path.c_str() << std::endl;
+        return 1;
     }
 
-    vector<string> words;
-    string line;
-
-    while (getline(file, line)) {
+    // Чтение данных из файла
+    std::vector<std::string> words;
+    std::string line;
+    while (std::getline(file, line)) {
         words.push_back(line);
     }
     file.close();
 
-    // Проверяем, есть ли слова в файле
-    if (words.empty()) {
-        cout << "Файл пуст." << endl;
-        return;
-    }
+    // Переменные для результатов
+    std::string longest_word;
+    int word_count = 0;
+    std::unordered_map<char, int> letter_frequency;
 
-    // Подсчет количества слов
-    size_t word_count = words.size();
-    string longest_word;
-    unordered_map<char, int> letter_frequency;
+    // Начало замера времени
+    auto start_time = std::chrono::high_resolution_clock::now();
 
-    // Создание потоков для выполнения разных задач
-    thread thread1(find_longest_word, ref(words), ref(longest_word));
-    thread1.join();  // Ждем завершения потока
+    // Создание и запуск потоков для выполнения разных задач
+    std::thread thread1(find_longest_word, std::ref(words), std::ref(longest_word));
+    std::thread thread2(count_words, std::ref(words), std::ref(word_count));
 
-    thread thread2(count_letter_frequency, ref(longest_word), ref(letter_frequency));
-    thread2.join();  // Ждем завершения второго потока
+    // Ожидание завершения первого потока, чтобы использовать результат в третьем потоке
+    thread1.join();
+
+    // Запуск третьего потока для подсчета частоты символов
+    std::thread thread3(count_letter_frequency, std::ref(longest_word), std::ref(letter_frequency));
+
+    // Ожидание завершения всех потоков
+    thread2.join();
+    thread3.join();
 
     // Конец замера времени
-    auto end_time = chrono::high_resolution_clock::now();
-    chrono::duration<double> execution_time = end_time - start_time;
+    auto end_time = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> execution_time = end_time - start_time;
 
     // Вывод результатов
-    cout << "\nСамое длинное слово: " << longest_word << endl;
-    cout << "Количество слов: " << word_count << endl;
-    cout << "Частота букв в самом длинном слове:" << endl;
+    std::wcout << L"Самое длинное слово: " << longest_word.c_str() << std::endl;
+    std::wcout << L"Количество слов: " << word_count << std::endl;
+    std::wcout << L"Частота букв в самом длинном слове:" << std::endl;
     for (const auto& pair : letter_frequency) {
-        cout << pair.first << ": " << pair.second << endl;
+        std::wcout << pair.first << L": " << pair.second << std::endl;
     }
 
-    // Подсчет и вывод времени выполнения
-    cout << "\nВремя выполнения программы (многопоточно): " << execution_time.count() << " секунд" << endl;
-}
-
-int main() {
-    // Установка локали для корректного отображения символов
-    setlocale(LC_ALL, "Russian");
-
-    string file_path = "X:\\Politex\\mnogopotok\\1 laba\\data.txt";
-    cout << "Однопоточная версия:" << endl;
-    single_threaded_version(file_path);
-
-    cout << "\nМногопоточная версия:" << endl;
-    multi_threaded_version(file_path);
+    // Вывод времени выполнения
+    std::wcout << L"\nВремя выполнения программы (многопоточно): " << execution_time.count() << L" секунд" << std::endl;
 
     return 0;
 }

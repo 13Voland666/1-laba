@@ -1,2 +1,3 @@
 ﻿  MNOGO1.cpp
+X:\Politex\mnogopotok\1 laba\MNOGO1\MNOGO1\MNOGO1.cpp(24,30): warning C4267: =: преобразование из "size_t" в "int"; возможна потеря данных
   MNOGO1.vcxproj -> X:\Politex\mnogopotok\1 laba\MNOGO1\x64\Debug\MNOGO1.exe
