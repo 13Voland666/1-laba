@@ -1,0 +1,3 @@
+﻿  singl1.cpp
+X:\Politex\mnogopotok\1 laba\singl1\singl1\singl1.cpp(40,34): warning C4267: инициализация: преобразование из "size_t" в "int"; возможна потеря данных
+  singl1.vcxproj -> X:\Politex\mnogopotok\1 laba\singl1\x64\Debug\singl1.exe
